@@ -1,4 +1,4 @@
-This might have issues with any generic ups as I was unable to fully test but it has been tested on Vertiv RDU101xx and Unity-DP cards along with Tripplite WEBCARDLX.
+This might have issues with any generic ups as I was unable to fully test but it has been tested on Vertiv RDU101xx and Unity-DP cards along with Tripplite WEBCARDLX. 
 
 # check_ups_vertiv.pl
 Icinga2 Vertiv UPS Check
