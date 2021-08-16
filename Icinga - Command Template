@@ -116,4 +116,4 @@ template CheckCommand "UPS Check Status" {
     vars.snmp_privprotocol = "aes"
     vars.snmp_username = "ups"
     vars.snmp_version = "3"
-}
+} 
