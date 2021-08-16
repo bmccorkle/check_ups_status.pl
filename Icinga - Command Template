@@ -1,0 +1,119 @@
+template CheckCommand "UPS Check Status" {
+    import "plugin-check-command"
+    command = [ PluginDir + "/check_ups_status.pl" ]
+    arguments += {
+        "-H" = {
+            order = 1
+            required = true
+            value = "$address$"
+        } 
+        "-C" = {
+            order = 2
+            repeat_key = false
+            value = "$snmp_community$"
+        }   
+        "-p" = {
+            order = 3
+            repeat_key = false
+            value = "$snmp_port$"
+        } 
+        "-v" = {
+            order = 4
+            repeat_key = false
+            value = "$snmp_version$"
+        }  
+        "-t" = {
+            order = 5
+            repeat_key = false
+            value = "$snmp_timeout$"
+        }   
+        "-a" = {
+            order = 6
+            repeat_key = false
+            value = "$ups_alarm_format$"
+        }   
+        "-d" = {
+            order = 8
+            repeat_key = false
+            value = "$ups_display_format$"
+        }   
+        "-z" = {
+            order = 9
+            set_if = "$hide_exit_status$"
+        }   
+        "--un" = {
+            order = 10
+            repeat_key = false
+            value = "$snmp_username$"
+        }
+        "--sl" = {
+            order = 11
+            repeat_key = false
+            value = "$snmp_seclevel$"
+        }      
+        "--ap" = {
+            order = 12
+            repeat_key = false
+            value = "$snmp_authprotocol$"
+        }        
+        "--ak" = {
+            order = 13
+            repeat_key = false
+            value = "$snmp_authpassword$"
+        }
+        "--pp" = {
+            order = 14
+            repeat_key = false
+            value = "$snmp_privprotocol$"
+        }    
+        "--pk" = {
+            order = 15
+            value = "$snmp_privpassword$"
+        }
+        "--wc" = {
+            order = 16
+            repeat_key = false
+            value = "$warn_charge_remain$"
+        }        
+        "--cc" = {
+            order = 17
+            repeat_key = false
+            value = "$crit_charge_remain$"
+        }
+        "--wl" = {
+            order = 18
+            repeat_key = false
+            value = "$warn_load$"
+        }        
+        "--cl" = {
+            order = 19
+            value = "$crit_load$"
+        }
+        "--wt" = {
+            order = 20
+            repeat_key = false
+            value = "$warn_time_remain$"
+        }  
+        "--ct" = {
+            order = 21
+            repeat_key = false
+            value = "$crit_time_remain$"
+        }
+        "--ws" = {
+            order = 22
+            repeat_key = false
+            value = "$warn_batt_status$"
+        }        
+        "--cs" = {
+            order = 23
+            repeat_key = false
+            value = "$crit_batt_status$"
+        }
+    }
+    vars.hide_exit_status = false
+    vars["ip-address"] = "$address$"
+    vars.snmp_authprotocol = "sha"
+    vars.snmp_privprotocol = "aes"
+    vars.snmp_username = "ups"
+    vars.snmp_version = "3"
+}
