@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-#NOTE:
+#NOTE: 
 #Current (AMPS) is stored in tenths in tables (divide by 10)
 
 ##################
