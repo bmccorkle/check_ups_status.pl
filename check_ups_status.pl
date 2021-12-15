@@ -11,7 +11,7 @@
 # Changelog:
 #	* 6/15/2021 - Initial Release
 ##############################
-my $version = "check_ups_status.pl v1.0";
+my $version = "check_ups_status.pl v1.0 by Brandon McCorkle for FreeBSD";
 #
 # Copyright (c) 2019, Brandon McCorkle <brandon.mccorkle@gmail.com>
 # All rights reserved.
