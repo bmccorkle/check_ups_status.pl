@@ -304,13 +304,13 @@ sub sub_sanitize() {
 		# We're Okay
 	}
 	else {
-		print "Option -a: Invalid Number\n";
+		print "Option -a: Invalid Number\n\n";
 		exit 1;
 	}
 
 	#Check Custom Display Output Option
 	if ( length($custom_display) > 4 ) {
-		print "Option -d: To many Characters\n";
+		print "Option -d: To many Characters\n\n";
 		exit 1;
 	}
 	else {
@@ -319,7 +319,7 @@ sub sub_sanitize() {
 		for (1..$len) {
 			$char = chop($temp);
 			if ($char ne "l" && $char ne "s" && $char ne "t" && $char ne "b") {
-				print "Option -d: Invalid Character \'$char\'\n";
+				print "Option -d: Invalid Character \'$char\'\n\n";
 				exit 1;
 			}
 		}
@@ -327,42 +327,42 @@ sub sub_sanitize() {
 
 	#Check Threshold Option (Load)
         if ( (defined $warn_load && $warn_load < 0) || (defined $warn_load && $warn_load > 100) ) {
-                print "Option --wl: Invalid Percent (0 to 100)\n";
+                print "Option --wl: Invalid Percent (0 to 100)\n\n";
                 exit 1;
         }
         if ( (defined $crit_load && $crit_load < 0 || defined $crit_load && $crit_load > 100) ) {
-                print "Option --cl: Invalid Percent (0 to 100)\n";
+                print "Option --cl: Invalid Percent (0 to 100)\n\n";
                 exit 1;
 	}
 
         #Check Threshold Option (Battery Charge Remaining)
         if ( (defined $warn_charge_remain && $warn_charge_remain < 0) || (defined $warn_charge_remain && $warn_charge_remain > 100) ) {
-                print "Option --wc: Invalid Percent (0 to 100)\n";
+                print "Option --wc: Invalid Percent (0 to 100)\n\n";
                 exit 1;
         }
         if ( (defined $crit_charge_remain && $crit_charge_remain < 0 || defined $crit_charge_remain && $crit_charge_remain > 100) ) {
-                print "Option --cc: Invalid Percent (0 to 100)\n";
+                print "Option --cc: Invalid Percent (0 to 100)\n\n";
                 exit 1;
         }
 
 	#Check Threshold Option (Battery Minutes Remaining)
         if ( defined $warn_time_remain && $warn_time_remain < 0 ) {
-                print "Option --wt: Invalid Number (Negative)\n";
+                print "Option --wt: Invalid Number (Negative)\n\n";
                 exit 1;
         }
         elsif ( defined $crit_time_remain && $crit_time_remain < 0 ) {
-                print "Option --ct: Invalid Number (Negative)\n";
+                print "Option --ct: Invalid Number (Negative)\n\n";
                 exit 1;
 
         }
 
 	#Check Threshold Option (Battery Status)
 	if ( (defined $warn_batt_status && $warn_batt_status > 4) || (defined $warn_batt_status && $warn_batt_status < 1) ) {
-                print "Option --ws: Invalid Number (1 to 4)\n";
+                print "Option --ws: Invalid Number (1 to 4)\n\n";
                 exit 1;
 	}
         elsif ( (defined $crit_batt_status && $crit_batt_status > 4) || (defined $crit_batt_status && $crit_batt_status < 1) ) {
-                print "Option --cs: Invalid Number (1 to 4)\n";
+                print "Option --cs: Invalid Number (1 to 4)\n\n";
                 exit 1;
         }
 
