@@ -52,7 +52,7 @@ Getopt::Long::config('auto_abbrev');
 #####
 # VARIABLES
 #####
-#SNMP Connection Variables
+## SNMP Connection Variables
 my $snmp_community		= "";
 my $snmp_host;
 my $snmp_port                   = 161;
@@ -67,7 +67,7 @@ my $snmp_privpassword		= "";
 my $session;
 my $error;
 
-#Threshold Variables
+## Threshold Variables
 my $warn_charge_remain		= 10;	#Percent
 my $crit_charge_remain		= 5;	#Percent
 my $warn_load			= 80;	#Percent
@@ -79,7 +79,7 @@ my $crit_time_remain		= 1;	#Minutes
 my $warn_batt_status		= 3;	#1=Normal, 2=Unknown, 3=Low, 4=Depleted
 my $crit_batt_status		= 4;	#1=Normal, 2=Unknown, 3=Low, 4=Depleted
 
-# Arrays to return oid values (Global so they return both)
+## Arrays to return oid values (Global so they return both)
 my $result_identity;
 my $result_agent;
 my $result_input_table;
@@ -99,45 +99,45 @@ my %hash_tripplite;
 my %hash_vertiv;
 my %hash_vertiv_agent_model;
 
-# Reference Only (We use the whole OID below instead)
+## Reference Only (We use the whole OID below instead)
 my $mib2 = '1.3.6.1.2.1';
 my $enterprises = '1.3.6.1.4.1';
 my $upsmib = "$mib2.33";
 my $vertiv = "$enterprises.476";
 
-# UPS Generic Identification OIDs
+## UPS Generic Identification OIDs
 my $oid_upsIdentManufacturer		= "1.3.6.1.2.1.33.1.1.1.0";
 my $oid_upsIdentModel          		= "1.3.6.1.2.1.33.1.1.2.0";
 my $oid_upsIdentUPSSoftwareVersion 	= "1.3.6.1.2.1.33.1.1.3.0";
 my $oid_upsIdentAgentSoftwareVersion	= "1.3.6.1.2.1.33.1.1.4.0";
 my $oid_upsIdentName			= "1.3.6.1.2.1.33.1.1.5.0";
 
-# UPS Generic Battery OIDs
+## UPS Generic Battery OIDs
 my $oid_battery_status		= "1.3.6.1.2.1.33.1.2.1.0";     # Battery Status (1=Unknown, 2=Normal, 3=Low, 4=Depleted)
 my $oid_battery_seconds        	= "1.3.6.1.2.1.33.1.2.2.0";     # Seconds on Battery
 my $oid_battery_min_remain     	= "1.3.6.1.2.1.33.1.2.3.0";     # Battery Remaining (Min)
 my $oid_battery_charge_remain	= "1.3.6.1.2.1.33.1.2.4.0";     # Charge Remaining (Min)
 my $oid_battery_alarm_count  	= "1.3.6.1.2.1.33.1.6.1.0";     # Number of Alarms
 
-# UPS Generic Input OIDs
+## UPS Generic Input OIDs
 my $oid_input_numlines          = "1.3.6.1.2.1.33.1.3.2.0";     # Input Number of Lines
 my $oid_input_table		= "1.3.6.1.2.1.33.1.3.3.1";	# Input Table (Frequency, Voltage, Current, True Power)
 
-# UPS Generic Output OIDs
+## UPS Generic Output OIDs
 my $oid_output_source           = "1.3.6.1.2.1.33.1.4.1.0";     # Output Source (1=Other, 2=None, 3=Normal, 4=Bypass, 5=Battery, 6=Booster, 7=Reducer)
 my $oid_output_freq             = "1.3.6.1.2.1.33.1.4.2.0";     # Output Frequency
 my $oid_output_numlines         = "1.3.6.1.2.1.33.1.4.3.0";     # Output Number of Lines
 my $oid_output_table		= "1.3.6.1.2.1.33.1.4.4.1";	# Output Table (Voltage, Current, Power, Percent Load)
 
-# UPS Generic Config OIDs
+## UPS Generic Config OIDs
 my $oid_config_max_va           = "1.3.6.1.2.1.33.1.9.5.0";     # Maximum Output VA
 
-# UPS Alarm OIDs
+## UPS Alarm OIDs
 my $oid_alarm_tripplite_table	= "1.3.6.1.4.1.850.1.3.2.1";			# Alarm Table (Tripplite Defined Alarms)
 my $oid_alarm_vertiv_table   	= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100";   # Alarm Table (Vertiv Defined Alarms)
 my $oid_alarm_table		= "1.3.6.1.2.1.33.1.6.2";			# Alarm Table (Generic Defined Alarms)
 
-# Vertiv GXT3-GXT5 OIDs
+## Vertiv GXT3-GXT5 OIDs
 my $oid_vertiv_brownouts		= "1.3.6.1.4.1.476.1.42.3.5.8.1.0";			# Brownout Count
 my $oid_vertiv_blackouts       		= "1.3.6.1.4.1.476.1.42.3.5.8.2.0";   			# Blackout Count
 my $oid_vertiv_batt_lastreplaced 	= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4160";  	# Date of Last Battery Replacement
@@ -148,11 +148,11 @@ my $oid_vertiv_agent_model     		= "1.3.6.1.4.1.476.1.42.2.1.2.0";              
 my $oid_battery_test_result    		= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.6181";	# Battery Test Result
 my $oid_battery_charge_percent 		= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4153";	# Battery Percent Charge
 
-# Tripplite OIDs (WEBCARDLX)
+## Tripplite OIDs (WEBCARDLX)
 my $oid_tripplite_load			= "1.3.6.1.4.1.850.1.1.3.1.3.3.2.1.5.1.1";		# Output Load (%)
 my $oid_tripplite_usedVA		= "1.3.6.1.4.1.850.1.1.3.2.3.2.1.1.12.1.1";		# Power Usage in VA
 
-# SNMP Input Table Arrays
+## SNMP Input Table Arrays
 my @i_index = ("Index");							# Label for i_index Array
 my @i_freq = ("Freq");								# Label for i_freq Array
 my @i_volt = ("Volts");								# Label for i_volt Array
@@ -160,7 +160,7 @@ my @i_curr = ("Amps");								# Label for i_curr Array
 my @i_truepower = ("True Power");						# Label for i_truepower Array
 my @input_table = ( \@i_index, \@i_freq, \@i_volt, \@i_curr, \@i_truepower );	# UPS SNMP Input Table Array
 
-# SNMP Output Table Arrays
+## SNMP Output Table Arrays
 my @o_index = ("Index");                                                        # Label for o_index Array
 my @o_volt = ("Volts");                                                      	# Label for o_volt Array
 my @o_curr = ("Amps");                                                        	# Label for o_curr Array
@@ -168,7 +168,7 @@ my @o_truepower = ("True Power");                                               
 my @o_load = ("Load");                                                          # Label for o_load Array (Load in %)
 my @output_table = ( \@o_index, \@o_volt, \@o_curr, \@o_truepower, \@o_load );  # UPS SNMP Input Table Array
 
-# Program Variables
+## Program Variables
 my $debug		= 0;	# Set to 1 to Debug
 my $alarm_cnt		= 0;
 my $alarm_info		= "";
@@ -182,7 +182,7 @@ my $print_help 		= 0;
 my $print_version	= 0;
 my $EXIT_STATE		= "";
 
-# UPS Shortened Variables
+## UPS Shortened Variables
 my $batt_status;		# Battery Status
 my $blackouts;			# Number of Blackouts
 my $brownouts;			# Number of Brownouts
@@ -197,7 +197,7 @@ my $output_voltage;		# Output Voltage
 my $time_remain;		# Battery Time Remaining
 my $va_capacity;		# VA Capacity of UPS
 
-# Icinga2 Status Codes:
+## Icinga2 Status Codes:
 my $STATE_OK		= 0;
 my $STATE_WARNING	= 1;
 my $STATE_CRITICAL	= 2;
