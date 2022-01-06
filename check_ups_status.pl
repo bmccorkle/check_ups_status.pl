@@ -287,7 +287,7 @@ if ($print_help != 0) {
 	exit;
 }
 elsif ($print_version !=0) {
-	print "$prog_name by $prog_author, Released: $prog_date  Version: $prog_version for FreeBSD\n\n";
+	print "$prog_name by $prog_author | Released: $prog_date | Version: $prog_version for FreeBSD\n\n";
 	exit;
 }
 
