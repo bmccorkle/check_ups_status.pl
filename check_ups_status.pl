@@ -4,14 +4,15 @@
 #Current (AMPS) is stored in tenths in tables (divide by 10)
 
 ##################
-# June 15th, 2021
-# Version 1.0
-# Author:  Brandon McCorkle
-# Purpose:  Checked with:  Vertiv RDU101 & IS-UNITY-DP, Tripplite WEBCARDLX, UHSA)
+# Purpose:  Checked with:  Vertiv RDU101 & IS-UNITY-DP, Tripplite WEBCARDLX, UHSA
 # Changelog:
 #	* 6/15/2021 - Initial Release
 ##############################
-my $version = "check_ups_status.pl v1.0 by Brandon McCorkle for FreeBSD";
+my $prog_author  = "Brandon McCorkle";
+my $prog_date    = "June 15th, 2021";
+my $prog_name    = "check_ups_status.pl";
+my $prog_version = "1.0";
+
 #
 # Copyright (c) 2019, Brandon McCorkle <brandon.mccorkle@gmail.com>
 # All rights reserved.
@@ -286,7 +287,7 @@ if ($print_help != 0) {
 	exit;
 }
 elsif ($print_version !=0) {
-	print "$version\n";
+	print "$prog_name by $prog_author, Released: $prog_date  Version: $prog_version for FreeBSD\n\n";
 	exit;
 }
 
