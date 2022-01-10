@@ -7,14 +7,15 @@
 # Purpose:  Checked with:  Vertiv RDU101 & IS-UNITY-DP, Tripplite WEBCARDLX, UHSA
 # Changelog:
 #	* 6/15/2021 - Initial Release
+#	* 1/10/2022 - Removed 'switch' dependency
 ##############################
 my $prog_author  = "Brandon McCorkle";
-my $prog_date    = "June 15th, 2021";
+my $prog_date    = "January 10th, 2022";
 my $prog_name    = "check_ups_status.pl";
-my $prog_version = "1.0";
+my $prog_version = "1.0.2";
 
 #
-# Copyright (c) 2019, Brandon McCorkle <brandon.mccorkle@gmail.com>
+# Copyright (c) 2021, Brandon McCorkle <brandon.mccorkle@gmail.com>
 # All rights reserved.
 
 # Redistribution and use in source and binary forms, with or without
@@ -40,7 +41,6 @@ my $prog_version = "1.0";
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 use warnings;
-use experimental ( 'switch' );
 use strict;
 use Net::SNMP;
 use Math::BigFloat;
@@ -287,7 +287,7 @@ if ($print_help != 0) {
 	exit;
 }
 elsif ($print_version !=0) {
-	print "$prog_name by $prog_author | Released: $prog_date | Version: $prog_version for FreeBSD\n\n";
+	print "$prog_name by $prog_author | Released: $prog_date | Version: $prog_version\n\n";
 	exit;
 }
 
@@ -373,18 +373,32 @@ sub sub_sanitize() {
                 printf "DEBUG: Warning & Critical Thresholds...\n";
                 printf "DEBUG: Battery Load Thresholds:  Warning: %s%%  Critical: %s%%\n", $warn_load, $crit_load;	
 		printf "DEBUG: Battery Time Thresholds:  Warning: %s min  Critical: %s min\n", $warn_time_remain, $crit_time_remain;
-                given($warn_batt_status){
-                        when (1) {$warn_msg = "Normal";}
-                        when (2) {$warn_msg = "Unknown";}
-                        when (3) {$warn_msg = "Low";}
-                        when (4) {$warn_msg = "Depleted";}
-                }
-                given($crit_batt_status){
-                        when (1) {$crit_msg = "Normal";}
-                        when (2) {$crit_msg = "Unknown";}
-                        when (3) {$crit_msg = "Low";}
-                        when (4) {$crit_msg = "Depleted";}
-                }
+		if ($warn_batt_status == 1) {
+			$warn_msg = "Normal";
+		}
+		elsif ($warn_batt_status == 2) {
+			$warn_msg = "Unknown";
+		}
+		elsif ($warn_batt_status == 3) {
+			$warn_msg = "Low";
+		}
+		elsif ($warn_batt_status == 4) {
+			$warn_msg = "Depleted";
+		}
+
+		if ($crit_batt_status == 1) {
+			$crit_msg = "Normal";
+		}
+		elsif ($crit_batt_status == 2) {
+			$crit_msg = "Unknown";
+		}
+		elsif ($crit_batt_status == 3) {
+			$crit_msg = "Low";
+		}
+		elsif ($crit_batt_status == 4) {
+			$crit_msg = "Depleted";
+		}
+
 		printf "DEBUG: Battery Stat Thresholds:  Warning: %s(%s)  Critical: %s(%s)\n", $warn_batt_status, $warn_msg, $crit_batt_status, $crit_msg;
 	}
 }
@@ -823,22 +837,49 @@ sub sub_convert () {
 	};
 
 	#Battery Status
-	given($result_battery->{ $hash_battery{ 'snmp_battery_status' } }){
-        	when (1) {$batt_status = 'Unknown';$flag_warn = ++$flag_warn;}
-	        when (2) {$batt_status = 'Normal';}
-	        when (3) {$batt_status = 'Low';$flag_warn = ++$flag_warn;}
-	        when (4) {$batt_status = 'Depleted';$flag_crit = ++$flag_crit;}
+	if ($result_battery->{ $hash_battery{ 'snmp_battery_status' } } == 1) {
+		$batt_status = "Unknown";
+		$flag_warn = ++$flag_warn;
+	}
+	elsif ($result_battery->{ $hash_battery{ 'snmp_battery_status' } } == 2) {
+		$batt_status = "Normal";
+	}
+	elsif ($result_battery->{ $hash_battery{ 'snmp_battery_status' } } == 3) {
+		$batt_status = "Low";
+		$flag_warn = ++$flag_warn;
+	}
+	elsif ($result_battery->{ $hash_battery{ 'snmp_battery_status' } } == 4) {
+		$batt_status = "Depleted";
+		$flag_crit = ++$flag_crit;
 	}
 
 	#Output Source
-	given($result_output->{ $hash_output{ 'snmp_output_source' } }){
-	        when (1) {$output_source = 'Other';$flag_warn = ++$flag_warn;}
-        	when (2) {$output_source = 'None';$flag_crit = ++$flag_crit;}
-	        when (3) {$output_source = 'Normal';}
-        	when (4) {$output_source = 'Bypass';$flag_warn = ++$flag_warn;}
-	        when (5) {$output_source = 'Battery';$flag_crit = ++$flag_crit;}
-        	when (6) {$output_source = 'Booster';$flag_warn = ++$flag_warn;}
-	        when (7) {$output_source = 'Reducer';$flag_warn = ++$flag_warn;}
+	if ($result_output->{ $hash_output{ 'snmp_output_source' } } == 1) {
+		$output_source = "Other";
+		$flag_warn = ++$flag_warn;
+	}
+	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 2) {
+		$output_source = "None";
+		$flag_crit = ++$flag_crit;
+	}
+	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 3) {
+		$output_source = "Normal";
+	}
+	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 4) {
+		$output_source = "Bypass";
+		$flag_warn = ++$flag_warn;
+	}
+	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 5) {
+		$output_source = "Battery";
+		$flag_crit = ++$flag_crit;
+	}
+	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 6) {
+		$output_source = "Booster";
+		$flag_warn = ++$flag_warn;
+	}
+	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 7) {
+		$output_source = "Reducer";
+		$flag_warn = ++$flag_warn;
 	}
 
 	#Charge Remaining
@@ -1218,12 +1259,10 @@ sub sub_return_msg () {
 
 	#Check whether to print Icinga State in Output
 	if ( $hide_exit_status != 1 ) {
-	        given($EXIT_STATE){
-                        when (0) {$STATUS_MSG = "OK - ";}
-        	        when (1) {$STATUS_MSG = "WARNING - ";}
-                	when (2) {$STATUS_MSG = "CRITICAL - ";}
-	                when (3) {$STATUS_MSG = "UNKNOWN - ";}
-        	}
+		if    ($EXIT_STATE == 0) {$STATUS_MSG = "OK - ";}
+		elsif ($EXIT_STATE == 1) {$STATUS_MSG = "WARNING - ";}
+		elsif ($EXIT_STATE == 2) {$STATUS_MSG = "CRITICAL - ";}
+		else                     {$STATUS_MSG = "UNKNOWN - ";}
 	}
 
 	#Alarms / Display Only Count
