@@ -12,7 +12,7 @@
 my $prog_author  = "Brandon McCorkle";
 my $prog_date    = "January 10th, 2022";
 my $prog_name    = "check_ups_status.pl";
-my $prog_version = "1.0.2";
+my $prog_version = "1.0.4";
 
 #
 # Copyright (c) 2021, Brandon McCorkle <brandon.mccorkle@gmail.com>
