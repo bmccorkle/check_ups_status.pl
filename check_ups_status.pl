@@ -1196,7 +1196,7 @@ sub sub_perf_data () {
 #####
 sub sub_return_msg () {
 
-	my (@display_order, $order_l, $order_s, $order_t, $order_b, $i);
+	my ($mash, @display_order, $order_l, $order_s, $order_t, $order_b, $i);
 	my $RETURN_MSG = "";
 	my $status_info = "";
 	my $STATUS_MSG = "";
@@ -1209,17 +1209,20 @@ sub sub_return_msg () {
 		$order_b = index($custom_display, "b");
 
 	#Load % & Load VA
-	if ($order_l != -1) {
-		if (defined $load_percent && defined $load && defined $va_capacity) {
-			$display_order[$order_l] = sprintf("Load: %.1f%% or %d/%d VA", $load_percent, $load, $va_capacity);
-		}
-		elsif (defined $load_percent) {
-			$display_order[$order_l] = sprintf("Load: %.1f%%", $load_percent);
-		}
-		elsif (defined $load && defined $va_capacity) {
-			$display_order[$order_l] = sprintf("%d/%d VA", $load, $va_capacity);
-		}
-	} 
+        if ($order_l != -1) {
+                if (defined $load_percent && defined $load && defined $va_capacity) {
+                        $mash = sprintf("Load: %.1f%% or %d/%dVA", $load_percent, $load, $va_capacity);
+                        $display_order[$order_l] = sprintf("%-30s %s", $mash, $model);
+                }
+                elsif (defined $load_percent) {
+                        $mash = sprintf("Load: %.1f%%", $load_percent);
+                        $display_order[$order_l] = sprintf("%-30s %s", $mash, $model);
+                }
+                elsif (defined $load && defined $va_capacity) {
+                        $mash = sprintf("%d/%dVA", $load, $va_capacity);
+                        $display_order[$order_l] = sprintf("%-30s %s", $mash, $model);
+                }
+        }
 	#Battery & Output Source
 	if ($order_s != -1) {
 		if (defined $batt_status && defined $output_source) {
