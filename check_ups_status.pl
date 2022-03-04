@@ -47,6 +47,7 @@ use Math::BigFloat;
 Math::BigFloat->precision(-3);
 use Getopt::Long;
 Getopt::Long::config('auto_abbrev');
+use Time::Piece;
 
 
 
@@ -813,7 +814,10 @@ sub sub_convert () {
                 #Battery Last Replaced (RDU101 Cards Only)
                 if ( $result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "RDU1xx Platform" ) {
                         $batt_date = $result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_batt_lastreplaced' } };
-                }	
+                        $batt_date =~ m/(\d{4}\-(0[1-9]|1[0-2])\-\d{1,2})/;
+                        $batt_date = $1;
+                        $batt_date = Time::Piece->strptime($batt_date, '%F')->strftime('%D');
+                }
 	}
 	#Tripplite
 	elsif ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE' ) {
