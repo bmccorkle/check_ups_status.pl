@@ -245,7 +245,7 @@ sub display_help(){
 	printf "	--ws\tWARN: On Battery Status: (1=Normal, 2=Unknown, 3=Low, 4=Depleted)\n";
 	printf "	--cs\tCRIT: On Battery Status: (1=Normal, 2=Unknown, 3=Low, 4=Depleted)\n";
 	printf "\n";
-        printf "     Example: ./check_ups_status.pl -C public -H 193.168.3.30 -X batteryStatus -wb 3 -cb 4 \n";
+        printf "     Example: ./check_ups_status.pl -C public -H 193.168.3.30 -ws 3 -cs 4 \n";
 	printf "\n\n";
 }
 
