@@ -36,4 +36,4 @@ Icinga2 Vertiv UPS Check
         --ws    WARN: On Battery Status: (1=Normal, 2=Unknown, 3=Low, 4=Depleted)
         --cs    CRIT: On Battery Status: (1=Normal, 2=Unknown, 3=Low, 4=Depleted)
 
-     Example: ./check_ups_status.pl -C public -H 193.168.3.30 -X batteryStatus -wb 3 -cb 4
+     Example: ./check_ups_status.pl -C public -H 193.168.3.30 -ws 3 -cs 4
