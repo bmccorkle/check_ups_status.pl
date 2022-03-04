@@ -184,6 +184,7 @@ my $print_version	= 0;
 my $EXIT_STATE		= "";
 
 ## UPS Shortened Variables
+my $batt_date;                  # Battery Last Replaced Date (RDU101 Cards Only)
 my $batt_status;		# Battery Status
 my $blackouts;			# Number of Blackouts
 my $brownouts;			# Number of Brownouts
@@ -808,6 +809,11 @@ sub sub_convert () {
 	        #Brownouts / Blackouts
         	$brownouts = $result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_blackouts' } };
         	$blackouts = $result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_brownouts' } };
+		
+                #Battery Last Replaced (RDU101 Cards Only)
+                if ( $result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "RDU1xx Platform" ) {
+                        $batt_date = $result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_batt_lastreplaced' } };
+                }	
 	}
 	#Tripplite
 	elsif ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE' ) {
@@ -1220,7 +1226,12 @@ sub sub_return_msg () {
 		elsif (defined $output_source) {
 			$display_order[$order_s] = sprintf("Output Source: %s", $output_source);
 		}
-	}
+
+                #Battery Last Replaced (Vertiv Only with RDU101 Card)
+                if (defined $batt_date) {
+                        $display_order[$order_s] = $display_order[$order_s] . sprintf(", Date: %s", $batt_date);
+                }
+}
 	#Time & Charge Remaining
         if ($order_t != -1) {
 		if (defined $time_remain && defined $charge_remain) {
