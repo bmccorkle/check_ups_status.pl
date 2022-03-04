@@ -8,7 +8,6 @@
 # Changelog:
 #	* 6/15/2021 - Initial Release
 #	* 1/10/2022 - Removed 'switch' dependency
-#	* 3/04/2022 - New Dependency Perl Module Time::Piece
 #	* 3/04/2022 - Retrieves Battery Last Replaced Date (Vertiv RDU101 Cards)
 ##############################
 my $prog_author  = "Brandon McCorkle";
