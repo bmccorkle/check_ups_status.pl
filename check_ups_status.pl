@@ -8,7 +8,7 @@
 # Changelog:
 #	* 6/15/2021 - Initial Release
 #	* 1/10/2022 - Removed 'switch' dependency
-#	* 3/04/2022 - Retrieves Battery Last Replaced Date (Vertiv RDU101 Cards)
+#     	* 3/04/2022 - Retrieves Battery Last Replaced Date (Vertiv RDU101 Cards) / Lists Model on Load Line
 ##############################
 my $prog_author  = "Brandon McCorkle";
 my $prog_date    = "January 10th, 2022";
