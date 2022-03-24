@@ -11,7 +11,7 @@
 #	* 3/04/2022 - Retrieves Battery Last Replaced Date (Vertiv RDU1xx Cards)
 #	* 3/20/2022 - Improved Error Handling, IS-UNITY-SNMP support
 #		    - Fix: Tripplite Manufacturer renamed to 'TRIPP Lite' in latest firmware 
-#       	- Fix: GXT5 Battery Self Test, New Option 'b'
+#       	    - Fix: GXT5 Battery Self Test, New Option 'b'
 #		    - New Custom Display option 'h' Displays Battery Last Replace Date and Health (Vertiv RDU1xx Cards)
 ##############################
 my $prog_author  = "Brandon McCorkle";
