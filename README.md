@@ -14,9 +14,15 @@ Icinga2 Vertiv UPS Check
                 1 = Alarm Count / Load Information
                 2 = Alarm Count / Load Information (Details on Multiline)
                 3 = Alarm Count & Details (May overrun line)
-        -d      Display Output Format [l|s|t|b] (Order Changes Displayed Order)*
+        -b      Battery Self Test (Vertiv GXT5 ONLY) [1|2|3|4]  (Default: 3)
+                1 = Ignore In Progress (Message Displayed/Okay Status)
+                2 = Ignore In Progress (Nothing Displayed/Okay Status)
+                3 = Warn for In Progress and on Battery
+                4 = Crit for In Progress and on Battery
+        -d      Display Output Format [l|s|h|t|b] (Default: lshtb, Order Changes Displayed Order)*
                 l = Show Load Information
                 s = Show Status of Battery and Output
+                h = Show Battery Last Replaced Date and Health (Vertiv GXT5 Only)
                 t = Show Time Remaining and Charge %
                 b = Show Brownouts & Blackouts
                 * First Option is Line 1 output (Alarms Override, See -a)
