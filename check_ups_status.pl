@@ -4,16 +4,20 @@
 #Current (AMPS) is stored in tenths in tables (divide by 10)
 
 ##################
-# Purpose:  Checked with:  Vertiv RDU101 & IS-UNITY-DP, Tripplite WEBCARDLX, UHSA
+# Purpose:  Retrieves UPS Statistics.  Checked with:  Vertiv RDU1xx & IS-UNITY-DP, Tripplite WEBCARDLX, UHSA
 # Changelog:
 #	* 6/15/2021 - Initial Release
-#	* 1/10/2022 - Removed 'switch' dependency
-#     	* 3/04/2022 - Retrieves Battery Last Replaced Date (Vertiv RDU101 Cards) / Lists Model on Load Line
+#	* 1/10/2022 - Public Release, Removed 'switch' dependency
+#	* 3/04/2022 - Retrieves Battery Last Replaced Date (Vertiv RDU1xx Cards)
+#	* 3/20/2022 - Improved Error Handling, IS-UNITY-SNMP support
+#		    - Fix: Tripplite Manufacturer renamed to 'TRIPP Lite' in latest firmware 
+#       	- Fix: GXT5 Battery Self Test, New Option 'b'
+#		    - New Custom Display option 'h' Displays Battery Last Replace Date and Health (Vertiv RDU1xx Cards)
 ##############################
 my $prog_author  = "Brandon McCorkle";
 my $prog_date    = "January 10th, 2022";
 my $prog_name    = "check_ups_status.pl";
-my $prog_version = "1.0.4";
+my $prog_version = "1.1.0";
 
 #
 # Copyright (c) 2021, Brandon McCorkle <brandon.mccorkle@gmail.com>
@@ -82,7 +86,7 @@ my $crit_time_remain		= 1;	#Minutes
 my $warn_batt_status		= 3;	#1=Normal, 2=Unknown, 3=Low, 4=Depleted
 my $crit_batt_status		= 4;	#1=Normal, 2=Unknown, 3=Low, 4=Depleted
 
-## Arrays to return oid values (Global so they return both)
+## SNMP Results and Hashes to return oid values (Global so they return both)
 my $result_identity;
 my $result_agent;
 my $result_input_table;
@@ -141,15 +145,16 @@ my $oid_alarm_vertiv_table   	= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100";   # 
 my $oid_alarm_table		= "1.3.6.1.2.1.33.1.6.2";			# Alarm Table (Generic Defined Alarms)
 
 ## Vertiv GXT3-GXT5 OIDs
+my $oid_vertiv_agent_model              = "1.3.6.1.4.1.476.1.42.2.1.2.0";                       # Agent Model (Card Model)
+my $oid_vertiv_batt_charge_percent      = "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4153";        # Battery Percent Charge
+my $oid_vertiv_batt_health              = "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.7462";        # Battery State of Health
+my $oid_vertiv_batt_lastreplaced        = "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4160";        # Date of Last Battery Replacement
+my $oid_vertiv_batt_test_result         = "1.3.6.1.4.1.476.1.42.3.9.30.1.20.1.2.1.6181";        # Battery Test Result
 my $oid_vertiv_brownouts		= "1.3.6.1.4.1.476.1.42.3.5.8.1.0";			# Brownout Count
 my $oid_vertiv_blackouts       		= "1.3.6.1.4.1.476.1.42.3.5.8.2.0";   			# Blackout Count
-my $oid_vertiv_batt_lastreplaced 	= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4160";  	# Date of Last Battery Replacement
 my $oid_vertiv_input_volts_L1_L2 	= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4097";	# System Input Voltage (L1-L2)
 my $oid_vertiv_output_appar_pwr 	= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4209";	# System Output Apparent Power (VA)
 my $oid_vertiv_system_status   		= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4123";  	# System Status (1=Normal Operation, 2=Startup, 8=Normal with Warning, 16=Normal with Alarm, 32=Abnornal Operation)
-my $oid_vertiv_agent_model     		= "1.3.6.1.4.1.476.1.42.2.1.2.0";                 	# Agent Model (Card Model)
-my $oid_battery_test_result    		= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.6181";	# Battery Test Result
-my $oid_battery_charge_percent 		= "1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.1.4153";	# Battery Percent Charge
 
 ## Tripplite OIDs (WEBCARDLX)
 my $oid_tripplite_load			= "1.3.6.1.4.1.850.1.1.3.1.3.3.2.1.5.1.1";		# Output Load (%)
@@ -175,18 +180,22 @@ my @output_table = ( \@o_index, \@o_volt, \@o_curr, \@o_truepower, \@o_load );  
 my $debug		= 0;	# Set to 1 to Debug
 my $alarm_cnt		= 0;
 my $alarm_info		= "";
-my $PERF_DATA		= "";
+my $batt_test_info	= "";
+my $batt_test_display	= 3;
 my $alarm_display	= 3;
-my $custom_display	= "lstb";
+my $custom_display	= "lshtb";
 my $hide_exit_status	= 0;
 my $flag_warn		= 0;
 my $flag_crit		= 0;
 my $print_help 		= 0;
 my $print_version	= 0;
 my $EXIT_STATE		= "";
+my $PERF_DATA           = "";
 
 ## UPS Shortened Variables
-my $batt_date;                  # Battery Last Replaced Date (RDU101 Cards Only)
+my $batt_date;                  # Battery Last Replaced Date (RDU1xx Cards Only)
+my $batt_health;		# Battery Health (RDU1xx Cards Only)
+my $batt_test_result;		# Battery Test Result (RDU1xx Cards Only)
 my $batt_status;		# Battery Status
 my $blackouts;			# Number of Blackouts
 my $brownouts;			# Number of Brownouts
@@ -226,25 +235,31 @@ sub display_help(){
 	printf "	\t1 = Alarm Count / Load Information\n";
 	printf "	\t2 = Alarm Count / Load Information (Details on Multiline)\n";
 	printf "	\t3 = Alarm Count & Details (May overrun line)\n";
-        printf "        -d\tDisplay Output Format [l|s|t|b] (Order Changes Displayed Order)*\n";
+	printf "	-b\tBattery Self Test (Vertiv GXT5 ONLY) [1|2|3|4]  (Default: 3)\n";
+	printf "	\t1 = Ignore In Progress (Message Displayed/Okay Status)\n";
+	printf "	\t2 = Ignore In Progress (Nothing Displayed/Okay Status)\n";
+        printf "        \t3 = Warn for In Progress and on Battery\n";
+        printf "        \t4 = Crit for In Progress and on Battery\n";
+        printf "        -d\tDisplay Output Format [l|s|h|t|b] (Default: lshtb, Order Changes Displayed Order)*\n";
         printf "        \tl = Show Load Information\n";
         printf "        \ts = Show Status of Battery and Output\n";
+        printf "        \th = Show Battery Last Replaced Date and Health (Vertiv GXT5 Only)\n";
         printf "        \tt = Show Time Remaining and Charge %%\n";
         printf "        \tb = Show Brownouts & Blackouts (Vertiv Only)\n";
         printf "        \t* First Option is Line 1 output (Alarms Override, See -a)\n";
 	printf "	-z\tDON'T Print exit status on Line 1 (Hate duplication)\n";
 	printf "	--un\tSNMPv3 Username\n";
-	printf "	--sl\tSNMPv3 Security Level [noauthnopriv|authnopriv|authpriv] (Default: noauthnopriv)\n";
-	printf "	--ap\tSNMPv3 Auth Protocol [md5|sha] (Default: sha)\n";
+	printf "	--sl\tSNMPv3 Security Level [noauthnopriv|authnopriv|authpriv]  (Default: noauthnopriv)\n";
+	printf "	--ap\tSNMPv3 Auth Protocol [md5|sha]  (Default: sha)\n";
 	printf "	--ak\tSNMPv3 Auth Password\n";
-	printf "	--pp\tSNMPv3 Privacy Protocol [des|aes] (Default: aes)\n";
+	printf "	--pp\tSNMPv3 Privacy Protocol [des|aes]  (Default: aes)\n";
         printf "        --pk\tSNMPv3 Privacy Password\n";
-	printf "        --wc\tWARN: On Remaining %% of Battery Charge (Default: 10%%)\n";
-	printf "	--cc\tCRIT: On Remaining %% of Battery Charge (Default:  5%%)\n";
-        printf "        --wl\tWARN: On Percent of Battery Load (Integer) (Default: 80%%)\n";
-        printf "        --cl\tCRIT: On Percent of Battery Load (Integer) (Default: 90%%)\n";
-	printf "	--wt\tWARN: On Minutes of Battery Remaining (Default: 2 min)\n";
-	printf "	--ct\tCRIT: On Minutes of Battery Remaining (Default: 1 min)\n";
+	printf "        --wc\tWARN: On Remaining %% of Battery Charge  (Default: 10%%)\n";
+	printf "	--cc\tCRIT: On Remaining %% of Battery Charge  (Default:  5%%)\n";
+        printf "        --wl\tWARN: On Percent of Battery Load (Integer)  (Default: 80%%)\n";
+        printf "        --cl\tCRIT: On Percent of Battery Load (Integer)  (Default: 90%%)\n";
+	printf "	--wt\tWARN: On Minutes of Battery Remaining  (Default: 2 min)\n";
+	printf "	--ct\tCRIT: On Minutes of Battery Remaining  (Default: 1 min)\n";
 	printf "	--ws\tWARN: On Battery Status: (1=Normal, 2=Unknown, 3=Low, 4=Depleted)\n";
 	printf "	--cs\tCRIT: On Battery Status: (1=Normal, 2=Unknown, 3=Low, 4=Depleted)\n";
 	printf "\n";
@@ -267,6 +282,7 @@ my $status = GetOptions
          "t=i"          =>      \$snmp_timeout,
 	 "v=i"		=>	\$snmp_version,
 	 "a=i"		=>	\$alarm_display,
+	 "b=i"		=>	\$batt_test_display,
 	 "d=s"		=>	\$custom_display,
 	 "z!"		=>	\$hide_exit_status,
 	 "un=s"		=>	\$snmp_username,
@@ -303,71 +319,84 @@ sub sub_sanitize() {
 
 	my ($char, $len, $temp, $warn_msg, $crit_msg);
 
+	#Check SNMP Version Option
+	if ($snmp_version >= 1 || $snmp_version <= 3) {
+		# We're Okay
+	}
+	else {
+		sub_error_handler ("Option -v: Invalid SNMP Version Given\n\n", $STATE_CRITICAL);
+	}
+
+	#Check SNMP Version and Community Combo Option
+	if ( ($snmp_version == 1 || $snmp_version == 2) && ($snmp_community eq "") ) {
+		sub_error_handler ("Option -C: Missing but SNMP Version 1/2 Given\n\n", $STATE_CRITICAL);
+	}
+        elsif ($snmp_version == 3 && $snmp_community ne "") {
+		sub_error_handler ("SNMPv3 given but SNMPv2 Community defined\n\n", $STATE_CRITICAL);
+        }
+
 	#Check Custom Alarms Option
 	if ($alarm_display >= 1 && $alarm_display <= 3) {
 		# We're Okay
 	}
 	else {
-		print "Option -a: Invalid Number\n\n";
-		exit 1;
+		sub_error_handler ("Option -a: Invalid Number\n\n", $STATE_CRITICAL);
 	}
 
+	#Check Battery Test Option
+        if ($batt_test_display >= 1 && $batt_test_display <= 4) {
+                # We're Okay
+        }
+        else {
+                sub_error_handler ("Option -b: Invalid Number\n\n", $STATE_CRITICAL);
+        }
+
 	#Check Custom Display Output Option
-	if ( length($custom_display) > 4 ) {
-		print "Option -d: To many Characters\n\n";
-		exit 1;
+	if ( length($custom_display) > 5 ) {
+		sub_error_handler ("Option -d: To many Characters\n\n", $STATE_CRITICAL);
 	}
 	else {
 	        $temp = $custom_display;
 		$len = length($temp);
 		for (1..$len) {
 			$char = chop($temp);
-			if ($char ne "l" && $char ne "s" && $char ne "t" && $char ne "b") {
-				print "Option -d: Invalid Character \'$char\'\n\n";
-				exit 1;
+			if ($char ne "l" && $char ne "s" && $char ne "t" && $char ne "b" && $char ne "h") {
+				sub_error_handler ("Option -d: Invalid Character \'$char\'\n\n", $STATE_CRITICAL);
 			}
 		}
 	}
 
 	#Check Threshold Option (Load)
         if ( (defined $warn_load && $warn_load < 0) || (defined $warn_load && $warn_load > 100) ) {
-                print "Option --wl: Invalid Percent (0 to 100)\n\n";
-                exit 1;
+		sub_error_handler ("Option --wl: Invalid Percent (0 to 100)\n\n", $STATE_CRITICAL);
         }
         if ( (defined $crit_load && $crit_load < 0 || defined $crit_load && $crit_load > 100) ) {
-                print "Option --cl: Invalid Percent (0 to 100)\n\n";
-                exit 1;
+		sub_error_handler ("Option --cl: Invalid Percent (0 to 100)\n\n", $STATE_CRITICAL);
 	}
 
         #Check Threshold Option (Battery Charge Remaining)
         if ( (defined $warn_charge_remain && $warn_charge_remain < 0) || (defined $warn_charge_remain && $warn_charge_remain > 100) ) {
-                print "Option --wc: Invalid Percent (0 to 100)\n\n";
-                exit 1;
+		sub_error_handler ("Option --wc: Invalid Percent (0 to 100)\n\n", $STATE_CRITICAL); 
         }
         if ( (defined $crit_charge_remain && $crit_charge_remain < 0 || defined $crit_charge_remain && $crit_charge_remain > 100) ) {
-                print "Option --cc: Invalid Percent (0 to 100)\n\n";
-                exit 1;
+		sub_error_handler ("Option --cc: Invalid Percent (0 to 100)\n\n", $STATE_CRITICAL);
         }
 
 	#Check Threshold Option (Battery Minutes Remaining)
         if ( defined $warn_time_remain && $warn_time_remain < 0 ) {
-                print "Option --wt: Invalid Number (Negative)\n\n";
-                exit 1;
+		sub_error_handler ("Option --wt: Invalid Number (Negative)\n\n", $STATE_CRITICAL);
         }
         elsif ( defined $crit_time_remain && $crit_time_remain < 0 ) {
-                print "Option --ct: Invalid Number (Negative)\n\n";
-                exit 1;
+		sub_error_handler ("Option --ct: Invalid Number (Negative)\n\n", $STATE_CRITICAL);
 
         }
 
 	#Check Threshold Option (Battery Status)
 	if ( (defined $warn_batt_status && $warn_batt_status > 4) || (defined $warn_batt_status && $warn_batt_status < 1) ) {
-                print "Option --ws: Invalid Number (1 to 4)\n\n";
-                exit 1;
+		sub_error_handler ("Option --ws: Invalid Number (1 to 4)\n\n", $STATE_CRITICAL);
 	}
         elsif ( (defined $crit_batt_status && $crit_batt_status > 4) || (defined $crit_batt_status && $crit_batt_status < 1) ) {
-                print "Option --cs: Invalid Number (1 to 4)\n\n";
-                exit 1;
+		sub_error_handler ("Option --cs: Invalid Number (1 to 4)\n\n", $STATE_CRITICAL); 
         }
 
 	#Debug
@@ -460,49 +489,51 @@ sub sub_HASH_VERTIV_AGENT_MODEL() {
 
 sub sub_HASH_VERTIV_UNITY() {
 	%hash_vertiv = (
+                "snmp_vertiv_batt_charge_percent"       => "$oid_vertiv_batt_charge_percent",
+                "snmp_vertiv_batt_test_result"          => "$oid_vertiv_batt_test_result",
         	"snmp_vertiv_brownouts"         	=> "$oid_vertiv_brownouts",
                 "snmp_vertiv_blackouts"         	=> "$oid_vertiv_blackouts",
                 "snmp_vertiv_output_appar_pwr"  	=> "$oid_vertiv_output_appar_pwr",
                 "snmp_vertiv_system_status"     	=> "$oid_vertiv_system_status",
-                "snmp_battery_test_result"      	=> "$oid_battery_test_result",
-                "snmp_battery_charge_percent"   	=> "$oid_battery_charge_percent",
 	);
 }
 
 sub sub_HASH_VERTIV_UNITY_2Phase() {
         %hash_vertiv = (
+                "snmp_vertiv_batt_charge_percent"       => "$oid_vertiv_batt_charge_percent",
+                "snmp_vertiv_batt_test_result"          => "$oid_vertiv_batt_test_result",
                 "snmp_vertiv_brownouts"         	=> "$oid_vertiv_brownouts",
                 "snmp_vertiv_blackouts"         	=> "$oid_vertiv_blackouts",
                 "snmp_vertiv_input_volts_L1_L2"         => "$oid_vertiv_input_volts_L1_L2",
                 "snmp_vertiv_output_appar_pwr"  	=> "$oid_vertiv_output_appar_pwr",
                 "snmp_vertiv_system_status"     	=> "$oid_vertiv_system_status",
-                "snmp_battery_test_result"      	=> "$oid_battery_test_result",
-                "snmp_battery_charge_percent"   	=> "$oid_battery_charge_percent",
         );
 }
 
 sub sub_HASH_VERTIV_RDU1xx() {
 	%hash_vertiv = (
+                "snmp_vertiv_batt_charge_percent"       => "$oid_vertiv_batt_charge_percent",
+                "snmp_vertiv_batt_test_result"          => "$oid_vertiv_batt_test_result",
         	"snmp_vertiv_brownouts"         	=> "$oid_vertiv_brownouts",
                 "snmp_vertiv_blackouts"         	=> "$oid_vertiv_blackouts",
+		"snmp_vertiv_batt_health"		=> "$oid_vertiv_batt_health",
                 "snmp_vertiv_batt_lastreplaced" 	=> "$oid_vertiv_batt_lastreplaced",
                 "snmp_vertiv_output_appar_pwr"  	=> "$oid_vertiv_output_appar_pwr",
                 "snmp_vertiv_system_status"     	=> "$oid_vertiv_system_status",
-                "snmp_battery_test_result"      	=> "$oid_battery_test_result",
-                "snmp_battery_charge_percent"   	=> "$oid_battery_charge_percent",
 	);
 }
 
 sub sub_HASH_VERTIV_RDU1xx_2Phase() {
         %hash_vertiv = (
+                "snmp_vertiv_batt_charge_percent"       => "$oid_vertiv_batt_charge_percent",
+                "snmp_vertiv_batt_test_result"          => "$oid_vertiv_batt_test_result",
                 "snmp_vertiv_brownouts"                 => "$oid_vertiv_brownouts",
                 "snmp_vertiv_blackouts"                 => "$oid_vertiv_blackouts",
+                "snmp_vertiv_batt_health"               => "$oid_vertiv_batt_health",
                 "snmp_vertiv_batt_lastreplaced"         => "$oid_vertiv_batt_lastreplaced",
                 "snmp_vertiv_input_volts_L1_L2"         => "$oid_vertiv_input_volts_L1_L2",
                 "snmp_vertiv_output_appar_pwr"          => "$oid_vertiv_output_appar_pwr",
                 "snmp_vertiv_system_status"             => "$oid_vertiv_system_status",
-                "snmp_battery_test_result"              => "$oid_battery_test_result",
-                "snmp_battery_charge_percent"           => "$oid_battery_charge_percent",
         );
 }
 
@@ -595,7 +626,7 @@ sub sub_get_snmp_ups() {
 	my ( @oids, @oids_agent, @oids_config, @oids_output, @oids_battery, @oids_alarm, @oids_tripplite, @oids_vertiv);
 
 	# Establish Connection Depending on Version Used
-	if ($snmp_version == 1 || $snmp_version ==2) {
+	if ($snmp_version == 1 || $snmp_version == 2) {
 	        ($session,$error) = Net::SNMP->session(
         	        Hostname        =>      $snmp_host,
                 	Port            =>      $snmp_port,
@@ -604,7 +635,7 @@ sub sub_get_snmp_ups() {
                 	Community       =>      $snmp_community,
                 );
 	}
-	elsif ($snmp_version == 3 && $snmp_community eq "") {
+	else {
         	($session,$error) = Net::SNMP->session(
                 	-hostname       =>      $snmp_host,
 	                -port           =>      $snmp_port,
@@ -617,26 +648,26 @@ sub sub_get_snmp_ups() {
 			-privpassword	=>	$snmp_privpassword
                 );
 	}
-	else {
-		if ($snmp_version == 3 && $snmp_community ne "") {
-			printf "Error:  SNMPv3 given but SNMPv2 Community defined";
-		}
-		exit;
-	}
 
         # Close Connection if Error
-        if (!defined($session)){
-		printf "ERROR: %s.\n", $error;
-#		printf STDERR $session->error();
-#		$session->close();
-                exit 1;
-        }
+	die "Error: $error\n" if not defined $session;
 
 	#Get Identity Hash
 	sub_HASH_IDENTITY;
 
 	@oids = sort values %hash_identity;
 	$result_identity = $session->get_request( -varbindlist => \@oids );
+
+	#UNDEFINED Response Returned from SNMP Session
+	if ( !defined $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} ) {
+		$session->close();
+		sub_error_handler ("Invalid SNMP Response - Check your Device and SNMP Options\n\n", $STATE_CRITICAL);
+	}
+	#Check for "noSuchObject" on Manufacturer - Usually occurs during Card Reboot
+	elsif ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq "noSuchObject" ) {
+                $session->close();
+                sub_error_handler ("'noSuchObject' for Manufacturer (Card Reboot?)\n\n", $STATE_WARNING);
+        }
 
 	#Debug
 	if ($debug == 1) {
@@ -668,11 +699,11 @@ sub sub_get_snmp_ups() {
 		if ( $result_identity->{$hash_identity{'snmp_upsIdentModel'}} =~ /\QGXT\E/) {
 
 			#Unity Card
-			if ( $result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "IS-UNITY-DP" ) {
+			if ( ( $result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "IS-UNITY-DP" ) 
+			 || ( $result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "IS-UNITY-SNMP" ) ) {
 				sub_HASH_CONFIG;
 				sub_HASH_OUTPUT;
 				sub_HASH_BATTERY;
-				sub_HASH_VERTIV_UNITY;
 
                                 #Determine if more than 1 input phase to get correct input voltage
                                 if ( $result_identity->{$hash_identity{'snmp_input_numlines'}} >= 2 ) {
@@ -682,9 +713,8 @@ sub sub_get_snmp_ups() {
                                         sub_HASH_VERTIV_UNITY;
                                 }
 			}
-
 			#RDU1xx Card
-			if ( $result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "RDU1xx Platform" ) {
+			elsif ( $result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "RDU1xx Platform" ) {
 				sub_HASH_CONFIG;
                                 sub_HASH_OUTPUT;
                                 sub_HASH_BATTERY;
@@ -697,10 +727,19 @@ sub sub_get_snmp_ups() {
 	                                sub_HASH_VERTIV_RDU1xx;
 				}
 			}
+			#Unknown Card
+			else {
+				sub_error_handler ("Unknown Vertiv Comm Card (Unity or RDU?)\n\n", $STATE_CRITICAL);
+			}
+		}
+		#Unknown Model
+		else {
+			sub_error_handler ("Unknown Vertiv Model (GXT?)\n\n", $STATE_CRITICAL);
 		}
 	}
 	#Tripplite Manufacturer
-	elsif ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE' ) {
+	elsif ( ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE') 
+	 || ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPP LITE') ) {
 		sub_HASH_CONFIG;
                 sub_HASH_OUTPUT;
                 sub_HASH_BATTERY;
@@ -732,9 +771,21 @@ sub sub_get_snmp_ups() {
 	if ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'Vertiv' ) {
 		@oids_vertiv = sort values %hash_vertiv;
 		$result_vertiv = $session->get_request( -varbindlist => \@oids_vertiv );	
+
+                #UNDEFINED Response Returned from SNMP Session
+                if ( !defined $result_vertiv->{$hash_vertiv{'snmp_vertiv_blackouts'}} ) {
+                	$session->close();
+                        sub_error_handler ("Invalid SNMP Response - Check your Device and SNMP Options\n\n", $STATE_CRITICAL);
+                }
+                #Check for "noSuchObject" on Blackouts & Brownouts - Usually occurs during Card Reboot
+                if ( $result_vertiv->{$hash_vertiv{'snmp_vertiv_blackouts'}} eq "noSuchObject" ) {
+                        $session->close();
+                        sub_error_handler ("'noSuchObject' for Blackouts/Brownouts (Card Reboot?)\n\n", $STATE_WARNING);
+                }
+
         	#Check Alarm Count and Get Alarms if not zero
            	if ( $result_battery->{$hash_battery{'snmp_battery_alarm_count'}} != 0 ) {
-                	#Use Vertiv Alarm Definitions, else use Generic UPS Alarm Definitions
+	               	#Use Vertiv Alarm Definitions, else use Generic UPS Alarm Definitions 
                         if ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'Vertiv' ) {
                         	$result_alarm = $session->get_table( $oid_alarm_vertiv_table );
                         }
@@ -744,7 +795,8 @@ sub sub_get_snmp_ups() {
                 }
 	}
 	#Get SNMP Values for TRIPPLITE Information and check for Alarms
-        elsif ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE' ) {
+        elsif ( ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE') 
+	 || ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPP LITE') ) {
                 @oids_tripplite = sort values %hash_tripplite;
                 $result_tripplite = $session->get_request( -varbindlist => \@oids_tripplite );
                 #Check Alarm Count and Get Alarms if not zero
@@ -773,13 +825,24 @@ sub sub_get_snmp_ups() {
 sub sub_convert () {
 
 	#UPS Model Number
-	$model = $result_identity->{ $hash_identity{ 'snmp_upsIdentModel' } };
+	$model = $result_identity->{$hash_identity{'snmp_upsIdentModel'}};
 
 	#Input Voltage
 	if ( ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'Vertiv') && ($result_identity->{$hash_identity{'snmp_input_numlines'}} >= 2 ) ) {
-		$input_voltage = $result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_input_volts_L1_L2' } };
-	}
 
+#BUGFIX
+# GXT5/RDU1xx Card returning 3 input lines regardless of size
+# Vertiv seeing same behavior in lab and investigating
+		# Obtains input voltage from table instead of L1_L2 OID for 120v models
+		if ( $model =~ /\QLVRT2UXL\E/ ) {
+			$input_voltage = $input_table[1][2];
+		}
+		else {
+			$input_voltage = $result_vertiv->{$hash_vertiv{'snmp_vertiv_input_volts_L1_L2'}};
+		}
+#END BUGFIX
+
+	}
 	else {
 		$input_voltage = $input_table[1][2];
 	}
@@ -793,7 +856,7 @@ sub sub_convert () {
 	#Vertiv
 	if ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'Vertiv' ) {
                 #VA Capacity
-                $va_capacity = $result_config->{ $hash_config{ 'snmp_config_max_va' } };
+                $va_capacity = $result_config->{$hash_config{'snmp_config_max_va'}};
 
 		#Load VA (Use Apparent Power to get VA Directly)
 		$load = (int($result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_output_appar_pwr' }}));
@@ -806,24 +869,31 @@ sub sub_convert () {
                 $crit_load_va = int($va_capacity * ($crit_load/100));
 
 	        #Time Remaining
-        	$time_remain = $result_battery->{ $hash_battery{ 'snmp_battery_min_remain' } };
+        	$time_remain = $result_battery->{$hash_battery{'snmp_battery_min_remain'}};
 
 	        #Brownouts / Blackouts
-        	$brownouts = $result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_blackouts' } };
-        	$blackouts = $result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_brownouts' } };
-		
-                #Battery Last Replaced (RDU101 Cards Only)
+        	$brownouts = $result_vertiv->{$hash_vertiv{'snmp_vertiv_blackouts'}};
+        	$blackouts = $result_vertiv->{$hash_vertiv{'snmp_vertiv_brownouts'}};
+
+		#Battery Test Result
+		$batt_test_result = $result_vertiv->{$hash_vertiv{'snmp_vertiv_batt_test_result'}};
+
+		#GXT5/RDU1xx Options (Battery Health & Battery Last Replaced Date)
                 if ( $result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "RDU1xx Platform" ) {
-                        $batt_date = $result_vertiv->{ $hash_vertiv{ 'snmp_vertiv_batt_lastreplaced' } };
+			$batt_health = $result_vertiv->{$hash_vertiv{'snmp_vertiv_batt_health'}};
+
+			#Battery Last Replaced
+                        $batt_date = $result_vertiv->{$hash_vertiv{'snmp_vertiv_batt_lastreplaced'}};
                         $batt_date =~ m/(\d{4}\-(0[1-9]|1[0-2])\-\d{1,2})/;
                         $batt_date = $1;
                         $batt_date = Time::Piece->strptime($batt_date, '%F')->strftime('%D');
                 }
 	}
 	#Tripplite
-	elsif ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE' ) {
+	elsif ( ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE')
+	 || ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPP LITE') ) {
                 #VA Capacity
-                $va_capacity = $result_config->{ $hash_config{ 'snmp_config_max_va' } };
+                $va_capacity = $result_config->{$hash_config{'snmp_config_max_va'}};
 
                 #Load Percent
 		$load_percent = $output_table[1][4];
@@ -848,53 +918,53 @@ sub sub_convert () {
 	};
 
 	#Battery Status
-	if ($result_battery->{ $hash_battery{ 'snmp_battery_status' } } == 1) {
+	if ($result_battery->{$hash_battery{'snmp_battery_status'}} == 1) {
 		$batt_status = "Unknown";
 		$flag_warn = ++$flag_warn;
 	}
-	elsif ($result_battery->{ $hash_battery{ 'snmp_battery_status' } } == 2) {
+	elsif ($result_battery->{$hash_battery{'snmp_battery_status'}} == 2) {
 		$batt_status = "Normal";
 	}
-	elsif ($result_battery->{ $hash_battery{ 'snmp_battery_status' } } == 3) {
+	elsif ($result_battery->{$hash_battery{'snmp_battery_status'}} == 3) {
 		$batt_status = "Low";
 		$flag_warn = ++$flag_warn;
 	}
-	elsif ($result_battery->{ $hash_battery{ 'snmp_battery_status' } } == 4) {
+	elsif ($result_battery->{$hash_battery{'snmp_battery_status'}} == 4) {
 		$batt_status = "Depleted";
 		$flag_crit = ++$flag_crit;
 	}
 
 	#Output Source
-	if ($result_output->{ $hash_output{ 'snmp_output_source' } } == 1) {
+	if ($result_output->{$hash_output{'snmp_output_source'}} == 1) {
 		$output_source = "Other";
 		$flag_warn = ++$flag_warn;
 	}
-	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 2) {
+	elsif ($result_output->{$hash_output{'snmp_output_source'}} == 2) {
 		$output_source = "None";
 		$flag_crit = ++$flag_crit;
 	}
-	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 3) {
+	elsif ($result_output->{$hash_output{'snmp_output_source'}} == 3) {
 		$output_source = "Normal";
 	}
-	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 4) {
+	elsif ($result_output->{$hash_output{'snmp_output_source'}} == 4) {
 		$output_source = "Bypass";
 		$flag_warn = ++$flag_warn;
 	}
-	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 5) {
+	elsif ($result_output->{$hash_output{'snmp_output_source'}} == 5) {
 		$output_source = "Battery";
 		$flag_crit = ++$flag_crit;
 	}
-	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 6) {
+	elsif ($result_output->{$hash_output{'snmp_output_source'}} == 6) {
 		$output_source = "Booster";
 		$flag_warn = ++$flag_warn;
 	}
-	elsif ($result_output->{ $hash_output{ 'snmp_output_source' } } == 7) {
+	elsif ($result_output->{$hash_output{'snmp_output_source'}} == 7) {
 		$output_source = "Reducer";
 		$flag_warn = ++$flag_warn;
 	}
 
 	#Charge Remaining
-	$charge_remain = $result_battery->{ $hash_battery{ 'snmp_battery_charge_remain' } };
+	$charge_remain = $result_battery->{$hash_battery{'snmp_battery_charge_remain'}};
 
 	return;
 }
@@ -964,6 +1034,70 @@ sub sub_check_thresholds () {
 
 
 #####
+# Battery Test Results
+#####
+sub sub_battery_test () {
+
+	#Vertiv GXT5/RDU1xx (This Model no longer registers tests as an alarm)
+	if ( ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'Vertiv')
+ 	 && ($result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "RDU1xx Platform") ) {
+		#Unknown
+		if ($batt_test_result == 0) {
+                        $batt_test_info = "<Battery Test Unknown> | ";			
+		}
+		#Passed - No Msg
+		elsif ($batt_test_result == 1) {
+			#$batt_test_info = "<Battery Test Passed> | ";
+		}
+		#Failed
+		elsif ($batt_test_result == 2) {
+                        $batt_test_info = "<Battery Test Failed> | ";
+			$flag_crit = ++$flag_crit;
+		}
+		#In Progress
+		elsif ($batt_test_result == 3) {
+			if ($alarm_cnt == 0) {
+				#Display Message / Okay Status
+				if ($batt_test_display == 1) {
+					$batt_test_info = "<Battery Test in Progress> | ";
+					$flag_crit = --$flag_crit;	#Remove 1 for on Battery
+				}
+				#Do not Display / Okay Status
+				elsif ($batt_test_display == 2) {
+					$batt_test_info = ""; 		# No Display
+					$flag_crit = --$flag_crit;      #Remove 1 for on Battery
+				}
+				#Display Message / Warn for on Battery
+				elsif ($batt_test_display == 3) {
+                                        $batt_test_info = "<Battery Test in Progress> | ";
+                                        $flag_crit = --$flag_crit;      #Remove 1 for on Battery
+					$flag_warn = ++$flag_warn;	#Add 1 to Warn
+				}
+				#Display Message / Critical for on Battery
+				else {
+                        	        $batt_test_info = "<Battery Test in Progress> | ";
+				}
+				
+			}
+		}
+                #System Failure
+                elsif ($batt_test_result == 4) {
+                        $batt_test_info = "<Battery Test System Failure> | ";
+                        $flag_warn = ++$flag_crit;
+		}
+                #Inhibited
+                elsif ($batt_test_result == 5) {
+                        $batt_test_info = "<Battery Test Inhibited> | ";
+                        $flag_warn = ++$flag_warn;
+                }
+	}
+
+	#GXT3/GXT4, Triplite, and Generic Register Test as an Alarm
+}
+
+
+
+#####
 # Alarm Description Check
 #####
 sub sub_check_alarms () {
@@ -989,9 +1123,11 @@ sub sub_check_alarms () {
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4310',	'Equipment Over Temperature',		'Warning',
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4311',	'System Fan Failure',			'Critical',
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4323',	'Battery Test Failed',			'Critical',
+			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4389',	'System Output Fault',			'Critical',
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4741',	'Battery Self Test',			'Warning',
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4823',	'Parallel Comm Warning',		'Warning',
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.4825',	'Loss of Redundancy',			'Warning',
+			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.5149',	'Battery Not Qualified',		'Critical',
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.5178',	'Output Overvoltage',			'Critical',
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.5179',	'Output Undervoltage',			'Warning',
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.5568',	'Input Undervoltage',			'Warning',
@@ -1009,7 +1145,8 @@ sub sub_check_alarms () {
 			'1.3.6.1.4.1.476.1.42.3.9.20.1.20.1.2.100.6454',	'DC to DC Converter Fault',		'Critical',
 		);
 	}
-	elsif ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE' ) {
+	elsif ( ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPPLITE')
+	 || ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPP LITE') ) {
 
         	#Tripplite UPS Alarm Definitions
                 @array_alarm_def = (
@@ -1069,9 +1206,9 @@ sub sub_check_alarms () {
 		#Vertiv UPS Alarms
 		if ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'Vertiv') {
                 	#Next Value if not an Active Alarm
-	                next if ( $val !~ m/Active Alarm/ );
+			next if ( $val !~ m/^Active.*/ );
 
-        	        if ($val eq "Active Alarm") {
+			if ( ($val =~ m/^Active.*/) ) {
                                 for ($i = 0; $i <= $#array_alarm_def; $i += 3) {
                                         if ($oid eq $array_alarm_def[$i]) {
 						#Found Alarm
@@ -1196,7 +1333,7 @@ sub sub_perf_data () {
 #####
 sub sub_return_msg () {
 
-	my ($mash, @display_order, $order_l, $order_s, $order_t, $order_b, $i);
+	my ($mash, @display_order, $order_l, $order_s, $order_t, $order_b, $order_h, $i);
 	my $RETURN_MSG = "";
 	my $status_info = "";
 	my $STATUS_MSG = "";
@@ -1207,6 +1344,7 @@ sub sub_return_msg () {
 		$order_s = index($custom_display, "s");
 		$order_t = index($custom_display, "t");
 		$order_b = index($custom_display, "b");
+                $order_h = index($custom_display, "h");
 
 	#Load % & Load VA
         if ($order_l != -1) {
@@ -1234,12 +1372,7 @@ sub sub_return_msg () {
 		elsif (defined $output_source) {
 			$display_order[$order_s] = sprintf("Output Source: %s", $output_source);
 		}
-
-                #Battery Last Replaced (Vertiv Only with RDU101 Card)
-                if (defined $batt_date) {
-                        $display_order[$order_s] = $display_order[$order_s] . sprintf(", Date: %s", $batt_date);
-                }
-}
+	}
 	#Time & Charge Remaining
         if ($order_t != -1) {
 		if (defined $time_remain && defined $charge_remain) {
@@ -1256,6 +1389,19 @@ sub sub_return_msg () {
         if ($order_b != -1 && $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'Vertiv') {
                 $display_order[$order_b] = sprintf("Brownouts: %s, Blackouts: %s", $brownouts, $blackouts);
 	}
+        #Battery Last Replaced Date and Health (Vertiv GXT5/RDU1xx Only)
+        if ( ($order_h != -1) && ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'Vertiv')
+	 && ($result_agent->{$hash_vertiv_agent_model{'snmp_vertiv_agent_model'}} eq "RDU1xx Platform") ) {
+		if (defined $batt_date && defined $batt_health) {
+			$display_order[$order_h] = sprintf("Battery Date: %s, Health: %s%%", $batt_date, $batt_health);
+		}
+                elsif (defined $batt_date) {
+                        $display_order[$order_h] = sprintf("Battery Date: %s", $batt_date);
+                }
+                elsif (defined $batt_health) {
+                        $display_order[$order_h] = sprintf(", Health: %s%%", $batt_health);
+                }
+        }
 
 	#Sort Customized Display
 	if ( $#display_order > 0 && $alarm_display == 2 ) {
@@ -1284,26 +1430,29 @@ sub sub_return_msg () {
 		else                     {$STATUS_MSG = "UNKNOWN - ";}
 	}
 
+	#Battery Test Results 
+	$RETURN_MSG = $RETURN_MSG . "$batt_test_info";
+
 	#Alarms / Display Only Count
         if ( $alarm_display == 1 && $alarm_cnt != 0 ) {
-                $RETURN_MSG = "$alarm_cnt Alarms | $status_info";
+                $RETURN_MSG = $RETURN_MSG . "$alarm_cnt Alarms | $status_info";
         }
 	#Alarms / Display Count on Line 1 / Details on Multiline
         elsif ( $alarm_display == 2 && $alarm_cnt != 0 ) {
 		if ( $#display_order == 0 ) {
-	                $RETURN_MSG = "$alarm_cnt Alarms | $display_order[0]\n$alarm_info";
+	                $RETURN_MSG = $RETURN_MSG . "$alarm_cnt Alarms | $display_order[0]\n$alarm_info";
 		}
 		else {
-			$RETURN_MSG = "$alarm_cnt Alarms | $display_order[0]\n$alarm_info\n\n$status_info";
+			$RETURN_MSG = $RETURN_MSG . "$alarm_cnt Alarms | $display_order[0]\n$alarm_info\n\n$status_info";
 		}
         }
 	#Alarms / Display Count and Details on Line 1
         elsif ( $alarm_display == 3 && $alarm_cnt !=0 ) {
-                $RETURN_MSG = "$alarm_cnt Alarms: $alarm_info\n$status_info";
+                $RETURN_MSG = $RETURN_MSG . "$alarm_cnt Alarms: $alarm_info\n$status_info";
 	}
 	#No Alarms
 	else {
-		$RETURN_MSG = $status_info;
+		$RETURN_MSG = $RETURN_MSG . $status_info;
 	}
 
 	#PRINT STATUS, RETURN MESSAGE, AND PEFORMANCE DATA
@@ -1317,12 +1466,23 @@ sub sub_return_msg () {
 
 
 #####
+# Error Handling
+#####
+sub sub_error_handler {
+	printf ("Error:  $_[0]");
+	exit $_[1];	
+}
+
+
+
+#####
 # Main
 #####
 sub_sanitize;
 sub_get_snmp_ups;
 sub_convert;
 sub_check_thresholds;
+sub_battery_test;
 
 if ( $result_battery->{$hash_battery{'snmp_battery_alarm_count'}} != 0 ) {
 	sub_check_alarms;
