@@ -663,10 +663,10 @@ sub sub_get_snmp_ups() {
 		$session->close();
 		sub_error_handler ("Invalid SNMP Response - Check your Device and SNMP Options\n\n", $STATE_CRITICAL);
 	}
-	#Check for "noSuchObject" on Manufacturer - Usually occurs during Card Reboot
+	#Check for "noSuchObject" on Manufacturer - Usually occurs during Card Initilization
 	elsif ( $result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq "noSuchObject" ) {
                 $session->close();
-                sub_error_handler ("'noSuchObject' for Manufacturer (Card Reboot?)\n\n", $STATE_WARNING);
+                sub_error_handler ("'noSuchObject' for Manufacturer (Card Initializing?)\n\n", $STATE_WARNING);
         }
 
 	#Debug
@@ -777,10 +777,10 @@ sub sub_get_snmp_ups() {
                 	$session->close();
                         sub_error_handler ("Invalid SNMP Response - Check your Device and SNMP Options\n\n", $STATE_CRITICAL);
                 }
-                #Check for "noSuchObject" on Blackouts & Brownouts - Usually occurs during Card Reboot
+                #Check for "noSuchObject" on Blackouts & Brownouts - Usually occurs during Card Initialization
                 if ( $result_vertiv->{$hash_vertiv{'snmp_vertiv_blackouts'}} eq "noSuchObject" ) {
                         $session->close();
-                        sub_error_handler ("'noSuchObject' for Blackouts/Brownouts (Card Reboot?)\n\n", $STATE_WARNING);
+                        sub_error_handler ("'noSuchObject' for Blackouts/Brownouts (Card Initializing?)\n\n", $STATE_WARNING);
                 }
 
         	#Check Alarm Count and Get Alarms if not zero
@@ -799,7 +799,14 @@ sub sub_get_snmp_ups() {
 	 || ($result_identity->{$hash_identity{'snmp_upsIdentManufacturer'}} eq 'TRIPP LITE') ) {
                 @oids_tripplite = sort values %hash_tripplite;
                 $result_tripplite = $session->get_request( -varbindlist => \@oids_tripplite );
-                #Check Alarm Count and Get Alarms if not zero
+
+                #Check for "noSuchObject" on Alarm Count - Usually occurs during Card Initialization
+                if ( $result_battery->{$hash_battery{'snmp_battery_alarm_count'}} eq "noSuchObject" ) {
+                        $session->close();
+                        sub_error_handler ("'noSuchObject' for Alarm Count (Card Initializing?)\n\n", $STATE_WARNING);
+                }
+
+		#Check Alarm Count and Get Alarms if not zero
                 if ( $result_battery->{$hash_battery{'snmp_battery_alarm_count'}} != 0 ) {
 			$result_alarm = $session->get_table( $oid_alarm_tripplite_table );
                 }
