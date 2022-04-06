@@ -43,3 +43,14 @@ Icinga2 Vertiv UPS Check
         --cs    CRIT: On Battery Status: (1=Normal, 2=Unknown, 3=Low, 4=Depleted)
 
      Example: ./check_ups_status.pl -C public -H 193.168.3.30 -ws 3 -cs 4
+
+
+###### Example GXT5 Output:
+
+![image](https://user-images.githubusercontent.com/36084927/162008054-ed513e41-20a3-4261-8f08-d57c0edcdf30.png)
+
+
+###### Example Tripplite Output:
+
+![image](https://user-images.githubusercontent.com/36084927/162008467-0e50e6ef-9f60-40d9-b4ae-4b777a3b4f64.png)
+
